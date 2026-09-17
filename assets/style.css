@@ -1,0 +1,37 @@
+:root{
+  --bg:#0f172a;
+  --panel:#111827;
+  --muted:#94a3b8;
+  --text:#e5e7eb;
+  --accent:#f59e0b;
+  --accent2:#38bdf8;
+  --danger:#ef4444;
+  --border:#243041;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(135deg,#0b1220,#111827);color:var(--text)}
+a{color:var(--accent2);text-decoration:none}
+.container{width:min(1100px,92%);margin:32px auto}
+.nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+.brand{font-size:24px;font-weight:800}
+.badge{display:inline-block;padding:4px 9px;border-radius:999px;background:#1f2937;color:#cbd5e1;font-size:12px}
+.card{background:rgba(17,24,39,.92);border:1px solid var(--border);border-radius:16px;padding:20px;box-shadow:0 10px 30px rgba(0,0,0,.2);margin-bottom:18px}
+.grid{display:grid;gap:16px}
+.grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.metric{font-size:32px;font-weight:800;margin-top:8px}
+label{display:block;margin:10px 0 6px;color:#cbd5e1}
+input,select,textarea{width:100%;padding:11px 12px;border-radius:10px;border:1px solid #334155;background:#0b1220;color:var(--text)}
+textarea{min-height:110px;resize:vertical}
+button,.btn{display:inline-block;padding:10px 14px;border:0;border-radius:10px;background:var(--accent);color:#052e16;font-weight:700;cursor:pointer}
+.btn.secondary{background:#334155;color:#fff}
+.btn.danger{background:var(--danger);color:#fff}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+table{width:100%;border-collapse:collapse}
+th,td{padding:12px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+th{color:#cbd5e1;font-size:13px;text-transform:uppercase;letter-spacing:.03em}
+.muted{color:var(--muted)}
+.flash{padding:12px 14px;border-radius:10px;background:#052e16;border:1px solid #166534;margin-bottom:16px}
+.error{background:#3f0d0d;border-color:#7f1d1d}
+.login{max-width:460px;margin:70px auto}
+@media(max-width:800px){.grid-3,.grid-2{grid-template-columns:1fr}table{display:block;overflow-x:auto}}
