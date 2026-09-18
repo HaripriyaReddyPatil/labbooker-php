@@ -52,6 +52,90 @@ $pdo->exec("
 
 /*
 |--------------------------------------------------------------------------
+| Production Admin Seed
+|--------------------------------------------------------------------------
+|
+| The admin account is created from environment variables.
+| No admin password is stored in GitHub.
+|
+*/
+
+$adminEmail = getenv('LABBOOKER_ADMIN_EMAIL');
+$adminPassword = getenv('LABBOOKER_ADMIN_PASSWORD');
+$adminName = getenv('LABBOOKER_ADMIN_NAME') ?: 'Lab Administrator';
+
+if (
+    $adminEmail &&
+    $adminPassword &&
+    filter_var($adminEmail, FILTER_VALIDATE_EMAIL)
+) {
+
+    $stmt = $pdo->prepare("
+        SELECT *
+        FROM users
+        WHERE email = ?
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $adminEmail
+    ]);
+
+    $existingAdmin = $stmt->fetch();
+
+    /*
+    |--------------------------------------------------------------------------
+    | Create Admin If It Does Not Exist
+    |--------------------------------------------------------------------------
+    */
+
+    if (!$existingAdmin) {
+
+        $stmt = $pdo->prepare("
+            INSERT INTO users (
+                name,
+                email,
+                password_hash,
+                role
+            )
+            VALUES (?, ?, ?, 'admin')
+        ");
+
+        $stmt->execute([
+            $adminName,
+            $adminEmail,
+            password_hash(
+                $adminPassword,
+                PASSWORD_DEFAULT
+            )
+        ]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Ensure Existing Account Has Admin Role
+    |--------------------------------------------------------------------------
+    */
+
+    } elseif ($existingAdmin['role'] !== 'admin') {
+
+        $stmt = $pdo->prepare("
+            UPDATE users
+            SET
+                name = ?,
+                role = 'admin'
+            WHERE id = ?
+        ");
+
+        $stmt->execute([
+            $adminName,
+            $existingAdmin['id']
+        ]);
+    }
+}
+
+
+/*
+|--------------------------------------------------------------------------
 | Equipment Table
 |--------------------------------------------------------------------------
 */
@@ -329,7 +413,8 @@ function logActivity(
         ? (int) $user['id']
         : null;
 
-    $actorName = $user['name'] ?? 'System';
+    $actorName =
+        $user['name'] ?? 'System';
 
     $stmt = $pdo->prepare("
         INSERT INTO activity_log (
