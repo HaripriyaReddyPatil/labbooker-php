@@ -8,20 +8,44 @@ require 'config.php';
 */
 
 $equipment = $pdo
-    ->query("SELECT * FROM equipment ORDER BY id DESC")
+    ->query("
+        SELECT *
+        FROM equipment
+        ORDER BY id DESC
+    ")
     ->fetchAll();
+
 
 $upcoming = $pdo
     ->query("
-        SELECT 
-            b.*, 
-            e.name AS equipment_name
+        SELECT
+            b.*,
+            e.name AS equipment_name,
+            e.location AS equipment_location
         FROM bookings b
-        JOIN equipment e ON e.id = b.equipment_id
+        JOIN equipment e
+            ON e.id = b.equipment_id
         ORDER BY b.start_at ASC
         LIMIT 8
     ")
     ->fetchAll();
+
+
+/*
+|--------------------------------------------------------------------------
+| Recent Activity
+|--------------------------------------------------------------------------
+*/
+
+$recentActivity = $pdo
+    ->query("
+        SELECT *
+        FROM activity_log
+        ORDER BY id DESC
+        LIMIT 8
+    ")
+    ->fetchAll();
+
 
 /*
 |--------------------------------------------------------------------------
@@ -30,34 +54,53 @@ $upcoming = $pdo
 */
 
 $totalEquipment = (int) $pdo
-    ->query("SELECT COUNT(*) FROM equipment")
+    ->query("
+        SELECT COUNT(*)
+        FROM equipment
+    ")
     ->fetchColumn();
+
 
 $availableEquipment = (int) $pdo
-    ->query("SELECT COUNT(*) FROM equipment WHERE status = 'Available'")
+    ->query("
+        SELECT COUNT(*)
+        FROM equipment
+        WHERE status = 'Available'
+    ")
     ->fetchColumn();
+
 
 $pendingBookings = (int) $pdo
-    ->query("SELECT COUNT(*) FROM bookings WHERE status = 'Pending'")
+    ->query("
+        SELECT COUNT(*)
+        FROM bookings
+        WHERE status = 'Pending'
+    ")
     ->fetchColumn();
 
+
 $approvedBookings = (int) $pdo
-    ->query("SELECT COUNT(*) FROM bookings WHERE status = 'Approved'")
+    ->query("
+        SELECT COUNT(*)
+        FROM bookings
+        WHERE status = 'Approved'
+    ")
     ->fetchColumn();
+
 
 $f = flash();
 
+
 /*
 |--------------------------------------------------------------------------
-| Helper for status badge classes
+| Badge Helper
 |--------------------------------------------------------------------------
 */
 
-function statusBadgeClass($status)
+function statusBadgeClass(string $status): string
 {
-    $status = strtolower($status);
+    switch (strtolower($status)) {
 
-    switch ($status) {
         case 'approved':
             return 'badge-approved';
 
@@ -70,9 +113,66 @@ function statusBadgeClass($status)
         case 'available':
             return 'badge-available';
 
+        case 'maintenance':
+            return 'badge-pending';
+
+        case 'cancelled':
+        case 'unavailable':
+            return 'badge-unavailable';
+
         default:
             return 'badge-unavailable';
     }
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Activity Badge Helper
+|--------------------------------------------------------------------------
+*/
+
+function activityBadgeClass(string $action): string
+{
+    $action = strtolower($action);
+
+    if (str_contains($action, 'approved')) {
+        return 'activity-success';
+    }
+
+    if (
+        str_contains($action, 'rejected') ||
+        str_contains($action, 'cancelled')
+    ) {
+        return 'activity-danger';
+    }
+
+    if (str_contains($action, 'booking')) {
+        return 'activity-primary';
+    }
+
+    return 'activity-neutral';
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Format Activity Time
+|--------------------------------------------------------------------------
+*/
+
+function activityTime(string $date): string
+{
+    $timestamp = strtotime($date);
+
+    if (!$timestamp) {
+        return $date;
+    }
+
+    return date(
+        'M j, Y g:i A',
+        $timestamp
+    );
 }
 ?>
 
@@ -81,6 +181,7 @@ function statusBadgeClass($status)
 <html lang="en">
 
 <head>
+
     <meta charset="UTF-8">
 
     <meta
@@ -88,33 +189,45 @@ function statusBadgeClass($status)
         content="width=device-width, initial-scale=1.0"
     >
 
-    <title>LabBooker | Research Equipment Management</title>
+    <title>
+        LabBooker | Research Equipment Management
+    </title>
 
     <link
         rel="stylesheet"
         href="assets/style.css"
     >
+
 </head>
 
 <body>
 
-<!-- ================================================================
-     HEADER
-================================================================ -->
+
+<!-- HEADER -->
 
 <header class="site-header">
 
     <div class="container navbar">
 
-        <a href="index.php" class="brand">
+        <a
+            href="index.php"
+            class="brand"
+        >
 
             <div class="brand-logo">
                 LB
             </div>
 
             <div class="brand-text">
-                <h1>LabBooker</h1>
-                <p>Research Equipment Management</p>
+
+                <h1>
+                    LabBooker
+                </h1>
+
+                <p>
+                    Research Equipment Management
+                </p>
+
             </div>
 
         </a>
@@ -126,17 +239,49 @@ function statusBadgeClass($status)
                 Dashboard
             </a>
 
-            <a href="booking_form.php">
-                Book Equipment
-            </a>
+            <?php if (isLoggedIn()): ?>
 
-            <a href="bookings.php">
-                Manage Bookings
-            </a>
+                <a href="booking_form.php">
+                    Book Equipment
+                </a>
 
-            <a href="equipment_form.php">
-                Add Equipment
-            </a>
+                <?php if (isAdmin()): ?>
+
+                    <a href="bookings.php">
+                        Manage Bookings
+                    </a>
+
+                    <a href="equipment.php">
+                        Manage Equipment
+                    </a>
+
+                <?php else: ?>
+
+                    <a href="my_bookings.php">
+                        My Bookings
+                    </a>
+
+                <?php endif; ?>
+
+
+                <span class="nav-user">
+                    <?= e(
+                        currentUser()['name']
+                        ?? 'User'
+                    ) ?>
+                </span>
+
+                <a href="logout.php">
+                    Logout
+                </a>
+
+            <?php else: ?>
+
+                <a href="login.php">
+                    Sign In
+                </a>
+
+            <?php endif; ?>
 
         </nav>
 
@@ -145,9 +290,7 @@ function statusBadgeClass($status)
 </header>
 
 
-<!-- ================================================================
-     MAIN CONTENT
-================================================================ -->
+<!-- MAIN -->
 
 <main>
 
@@ -170,14 +313,16 @@ function statusBadgeClass($status)
         </div>
 
 
-        <!-- FLASH MESSAGE -->
+        <!-- FLASH -->
 
         <?php if ($f): ?>
 
-            <div class="alert <?= $f[1] === 'error'
-                ? 'alert-error'
-                : 'alert-success'
-            ?>">
+            <div
+                class="alert <?= $f[1] === 'error'
+                    ? 'alert-error'
+                    : 'alert-success'
+                ?>"
+            >
 
                 <?= e($f[0]) ?>
 
@@ -186,9 +331,7 @@ function statusBadgeClass($status)
         <?php endif; ?>
 
 
-        <!-- ========================================================
-             STATISTICS
-        ========================================================= -->
+        <!-- DASHBOARD STATS -->
 
         <div class="stats-grid">
 
@@ -264,12 +407,9 @@ function statusBadgeClass($status)
         </div>
 
 
-        <!-- ========================================================
-             EQUIPMENT INVENTORY
-        ========================================================= -->
+        <!-- EQUIPMENT INVENTORY -->
 
         <section class="panel">
-
 
             <div class="panel-header">
 
@@ -280,41 +420,50 @@ function statusBadgeClass($status)
                     </h3>
 
                     <p>
-                        Current laboratory equipment and availability.
+                        Current laboratory resources and availability.
                     </p>
 
                 </div>
 
 
-                <a
-                    href="equipment_form.php"
-                    class="btn btn-primary"
-                >
-                    + Add Equipment
-                </a>
+                <?php if (isAdmin()): ?>
+
+                    <a
+                        href="equipment.php"
+                        class="btn btn-secondary"
+                    >
+                        Manage Equipment
+                    </a>
+
+                <?php elseif (isLoggedIn()): ?>
+
+                    <a
+                        href="booking_form.php"
+                        class="btn btn-primary"
+                    >
+                        Book Equipment
+                    </a>
+
+                <?php endif; ?>
 
             </div>
 
 
             <?php if (!$equipment): ?>
 
-
                 <div class="empty-state">
 
                     <h4>
-                        No equipment added yet
+                        No equipment registered
                     </h4>
 
                     <p>
-                        Add your first laboratory resource to begin accepting
-                        reservations.
+                        Equipment will appear here once added.
                     </p>
 
                 </div>
 
-
             <?php else: ?>
-
 
                 <div class="table-wrapper">
 
@@ -337,7 +486,7 @@ function statusBadgeClass($status)
                                 </th>
 
                                 <th>
-                                    Availability
+                                    Status
                                 </th>
 
                             </tr>
@@ -352,25 +501,28 @@ function statusBadgeClass($status)
                                 <tr>
 
                                     <td>
+
                                         <strong>
                                             <?= e($item['name']) ?>
                                         </strong>
-                                    </td>
 
+                                    </td>
 
                                     <td>
                                         <?= e($item['category']) ?>
                                     </td>
 
-
                                     <td>
                                         <?= e($item['location']) ?>
                                     </td>
 
-
                                     <td>
 
-                                        <span class="badge <?= statusBadgeClass($item['status']) ?>">
+                                        <span
+                                            class="badge <?= statusBadgeClass(
+                                                $item['status']
+                                            ) ?>"
+                                        >
 
                                             <?= e($item['status']) ?>
 
@@ -388,64 +540,59 @@ function statusBadgeClass($status)
 
                 </div>
 
-
             <?php endif; ?>
-
 
         </section>
 
 
-        <!-- ========================================================
-             BOOKING REQUESTS
-        ========================================================= -->
+        <!-- BOOKINGS -->
 
         <section class="panel">
-
 
             <div class="panel-header">
 
                 <div>
 
                     <h3>
-                        Recent Booking Requests
+                        Reservation Activity
                     </h3>
 
                     <p>
-                        Latest equipment reservation activity.
+                        Recent equipment reservation requests.
                     </p>
 
                 </div>
 
 
-                <div>
-
-                    <a
-                        href="booking_form.php"
-                        class="btn btn-primary"
-                    >
-                        + New Booking
-                    </a>
-
+                <?php if (isAdmin()): ?>
 
                     <a
                         href="bookings.php"
                         class="btn btn-secondary"
                     >
-                        Manage All
+                        Manage Bookings
                     </a>
 
-                </div>
+                <?php elseif (isLoggedIn()): ?>
+
+                    <a
+                        href="my_bookings.php"
+                        class="btn btn-secondary"
+                    >
+                        My Bookings
+                    </a>
+
+                <?php endif; ?>
 
             </div>
 
 
             <?php if (!$upcoming): ?>
 
-
                 <div class="empty-state">
 
                     <h4>
-                        No bookings yet
+                        No reservations yet
                     </h4>
 
                     <p>
@@ -454,9 +601,7 @@ function statusBadgeClass($status)
 
                 </div>
 
-
             <?php else: ?>
-
 
                 <div class="table-wrapper">
 
@@ -475,11 +620,7 @@ function statusBadgeClass($status)
                                 </th>
 
                                 <th>
-                                    Start
-                                </th>
-
-                                <th>
-                                    End
+                                    Schedule
                                 </th>
 
                                 <th>
@@ -500,32 +641,87 @@ function statusBadgeClass($status)
                                     <td>
 
                                         <strong>
-                                            <?= e($booking['equipment_name']) ?>
+                                            <?= e(
+                                                $booking['equipment_name']
+                                            ) ?>
                                         </strong>
 
-                                    </td>
+                                        <br>
 
+                                        <small>
+                                            <?= e(
+                                                $booking['equipment_location']
+                                            ) ?>
+                                        </small>
 
-                                    <td>
-                                        <?= e($booking['requester']) ?>
-                                    </td>
-
-
-                                    <td>
-                                        <?= e($booking['start_at']) ?>
-                                    </td>
-
-
-                                    <td>
-                                        <?= e($booking['end_at']) ?>
                                     </td>
 
 
                                     <td>
 
-                                        <span class="badge <?= statusBadgeClass($booking['status']) ?>">
+                                        <strong>
+                                            <?= e(
+                                                $booking['requester']
+                                            ) ?>
+                                        </strong>
 
-                                            <?= e($booking['status']) ?>
+                                        <br>
+
+                                        <small>
+                                            <?= e(
+                                                $booking['requester_email']
+                                            ) ?>
+                                        </small>
+
+                                    </td>
+
+
+                                    <td>
+
+                                        <strong>
+
+                                            <?= e(
+                                                date(
+                                                    'M j, Y g:i A',
+                                                    strtotime(
+                                                        $booking['start_at']
+                                                    )
+                                                )
+                                            ) ?>
+
+                                        </strong>
+
+                                        <br>
+
+                                        <small>
+
+                                            to
+
+                                            <?= e(
+                                                date(
+                                                    'M j, Y g:i A',
+                                                    strtotime(
+                                                        $booking['end_at']
+                                                    )
+                                                )
+                                            ) ?>
+
+                                        </small>
+
+                                    </td>
+
+
+                                    <td>
+
+                                        <span
+                                            class="badge <?= statusBadgeClass(
+                                                $booking['status']
+                                            ) ?>"
+                                        >
+
+                                            <?= e(
+                                                $booking['status']
+                                            ) ?>
 
                                         </span>
 
@@ -541,9 +737,119 @@ function statusBadgeClass($status)
 
                 </div>
 
-
             <?php endif; ?>
 
+        </section>
+
+
+        <!-- RECENT ACTIVITY -->
+
+        <section class="panel">
+
+            <div class="panel-header">
+
+                <div>
+
+                    <h3>
+                        Recent Activity
+                    </h3>
+
+                    <p>
+                        Latest booking and administrative actions in LabBooker.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <?php if (!$recentActivity): ?>
+
+                <div class="empty-state">
+
+                    <h4>
+                        No activity recorded yet
+                    </h4>
+
+                    <p>
+                        Booking and administrative activity will appear here.
+                    </p>
+
+                </div>
+
+            <?php else: ?>
+
+                <div class="activity-list">
+
+                    <?php foreach ($recentActivity as $activity): ?>
+
+                        <div class="activity-item">
+
+                            <div
+                                class="activity-icon <?= activityBadgeClass(
+                                    $activity['action']
+                                ) ?>"
+                            >
+
+                                <?= strtoupper(
+                                    substr(
+                                        $activity['action'],
+                                        0,
+                                        1
+                                    )
+                                ) ?>
+
+                            </div>
+
+
+                            <div class="activity-content">
+
+                                <div class="activity-heading">
+
+                                    <strong>
+                                        <?= e(
+                                            $activity['action']
+                                        ) ?>
+                                    </strong>
+
+                                    <span class="activity-time">
+
+                                        <?= e(
+                                            activityTime(
+                                                $activity['created_at']
+                                            )
+                                        ) ?>
+
+                                    </span>
+
+                                </div>
+
+
+                                <p>
+                                    <?= e(
+                                        $activity['description']
+                                    ) ?>
+                                </p>
+
+
+                                <small>
+
+                                    By
+                                    <?= e(
+                                        $activity['actor_name']
+                                    ) ?>
+
+                                </small>
+
+                            </div>
+
+                        </div>
+
+                    <?php endforeach; ?>
+
+                </div>
+
+            <?php endif; ?>
 
         </section>
 
@@ -552,10 +858,6 @@ function statusBadgeClass($status)
 
 </main>
 
-
-<!-- ================================================================
-     FOOTER
-================================================================ -->
 
 <footer class="site-footer">
 
